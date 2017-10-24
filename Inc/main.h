@@ -41,13 +41,15 @@
   /* Includes ------------------------------------------------------------------*/
 
 /* USER CODE BEGIN Includes */
-
+#include "stm32f4xx_hal.h"
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
 
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define LCD_CS_Pin GPIO_PIN_2
+#define LCD_CS_GPIO_Port GPIOC
 #define USART_TX_Pin GPIO_PIN_2
 #define USART_TX_GPIO_Port GPIOA
 #define USART_RX_Pin GPIO_PIN_3
@@ -58,8 +60,16 @@
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
+#define LCD_A0_Pin GPIO_PIN_15
+#define LCD_A0_GPIO_Port GPIOA
+#define LCD_SCK_Pin GPIO_PIN_10
+#define LCD_SCK_GPIO_Port GPIOC
+#define LCD_SDA_Pin GPIO_PIN_12
+#define LCD_SDA_GPIO_Port GPIOC
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
+#define LCD_RESET_Pin GPIO_PIN_7
+#define LCD_RESET_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

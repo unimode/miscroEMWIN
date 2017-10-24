@@ -56,6 +56,8 @@ Purpose     : Display controller configuration (single layer)
 #include "main.h"
 #include <stdint.h>
 
+extern SPI_HandleTypeDef hspi3;
+
 /*********************************************************************
 *
 *       Layer configuration (to be modified)
@@ -114,6 +116,102 @@ static void setRESET(uint8_t value)
 {
 	HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, value);
 }
+
+static void sendCmd(uint8_t data)
+{
+	uint8_t t = data;
+	setA0(0);
+	//HAL_SPI_Transmit_DMA(&hspi3, &t, 1);
+	HAL_SPI_Transmit(&hspi3, &t, 1, 5000);
+	//while(hspi3.Instance->SR  & SPI_SR_BSY);
+	while(HAL_SPI_GetState(&hspi3) == HAL_SPI_STATE_BUSY_TX);
+}
+
+static void sendData(uint8_t data)
+{
+	uint8_t t = data;
+	setA0(1);
+	//HAL_SPI_Transmit_DMA(&hspi3, &t, 1);
+	HAL_SPI_Transmit(&hspi3, &t, 1, 5000);
+	//while(hspi3.Instance->SR  & SPI_SR_BSY);
+	while(HAL_SPI_GetState(&hspi3) == HAL_SPI_STATE_BUSY_TX);
+}
+
+void st7735Init(void)
+{
+	setCS(0);
+	HAL_Delay(100);
+
+	// software reset
+	sendCmd(0x01);
+	HAL_Delay(100);
+
+	// hardware reset
+	setRESET(0);
+    HAL_Delay(100);
+    setRESET(1);
+    HAL_Delay(100);
+
+    // wake up
+    sendCmd(0x11);
+    HAL_Delay(100);
+
+    // color mode 16bit
+    sendCmd(0x3A);
+    sendData(0x05);
+
+    // direction and color
+    sendCmd(0x36);
+    sendData(0x14); // RGB
+    //sendData(0x1C); // BGR
+
+    sendCmd(0x29); // turn on display
+
+    // setCS(1); ???
+}
+
+void st7735SetRect(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
+{
+	sendCmd(0x2A);
+	sendData(0x00);
+	sendData(x1);
+	sendData(0x00);
+	sendData(x2);
+
+	sendCmd(0x2B);
+	sendData(0x00);
+	sendData(y1);
+	sendData(0x00);
+	sendData(y2);
+}
+
+void st7735FillRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint16_t color)
+{
+	if(width == 0)
+		width = 1;
+	if(height == 0)
+		height = 1;
+
+	st7735SetRect(x, y, x+width-1, y+height-1);
+	sendCmd(0x2C);
+	setA0(1);
+
+	HAL_SPI_DeInit(&hspi3);
+	hspi3.Init.DataSize = SPI_DATASIZE_16BIT;
+	HAL_SPI_Init(&hspi3);
+
+	//while(HAL_SPI_GetState(&hspi3) == HAL_SPI_STATE_RESET);
+	HAL_StatusTypeDef result = HAL_SPI_Transmit_DMA(&hspi3, (uint8_t*)(&color), 2*width*height);
+	//while(hspi3.Instance->SR  & SPI_SR_BSY);
+	while(HAL_SPI_GetState(&hspi3) == HAL_SPI_STATE_BUSY_TX);
+
+	//HAL_Delay(100);
+
+	HAL_SPI_DeInit(&hspi3);
+	hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
+	HAL_SPI_Init(&hspi3);
+}
+
 /********************************************************************
 *
 *       LcdWriteReg
@@ -123,6 +221,7 @@ static void setRESET(uint8_t value)
 */
 static void LcdWriteReg(U16 Data) {
   // ... TBD by user
+	sendCmd(Data);
 }
 
 /********************************************************************
@@ -134,6 +233,7 @@ static void LcdWriteReg(U16 Data) {
 */
 static void LcdWriteData(U16 Data) {
   // ... TBD by user
+	sendData(Data);
 }
 
 /********************************************************************
@@ -144,9 +244,15 @@ static void LcdWriteData(U16 Data) {
 *   Writes multiple values to a display register.
 */
 static void LcdWriteDataMultiple(U16 * pData, int NumItems) {
-  while (NumItems--) {
-    // ... TBD by user
+  int i = 0;
+  if(i==0){
+	  i=1;
+	  st7735FillRect(10,10,20,20,0x31);
   }
+  /*while (NumItems--) {
+    // ... TBD by user
+	  sendData(&(pData[i++]));
+  }*/
 }
 
 /********************************************************************
@@ -184,7 +290,11 @@ void LCD_X_Config(void) {
   //
   // Set display driver and color conversion
   //
-  pDevice = GUI_DEVICE_CreateAndLink(GUIDRV_FLEXCOLOR, GUICC_565, 0, 0);
+  //pDevice = GUI_DEVICE_CreateAndLink(GUIDRV_FLEXCOLOR, GUICC_565, 0, 0);
+
+  /* for RGB - GUICC_M565 , for BGR - GUICC_565*/
+  pDevice = GUI_DEVICE_CreateAndLink(GUIDRV_FLEXCOLOR, GUICC_M565, 0, 0);
+
   //
   // Display driver configuration, required for Lin-driver
   //
@@ -202,7 +312,10 @@ void LCD_X_Config(void) {
   PortAPI.pfWrite16_A1  = LcdWriteData;
   PortAPI.pfWriteM16_A1 = LcdWriteDataMultiple;
   PortAPI.pfReadM16_A1  = LcdReadDataMultiple;
-  GUIDRV_FlexColor_SetFunc(pDevice, &PortAPI, GUIDRV_FLEXCOLOR_F66708, GUIDRV_FLEXCOLOR_M16C0B16);
+  //GUIDRV_FlexColor_SetFunc(pDevice, &PortAPI, GUIDRV_FLEXCOLOR_F66708, GUIDRV_FLEXCOLOR_M16C0B16);
+  /* GUIDRV_FLEXCOLOR_F66709 - for st7735 */
+  /* GUIDRV_FLEXCOLOR_M16C0B8 16bpp, no cache, 8 bit bus - SPI data bus */
+  GUIDRV_FlexColor_SetFunc(pDevice, &PortAPI, GUIDRV_FLEXCOLOR_F66709, GUIDRV_FLEXCOLOR_M16C0B8);
 }
 
 /*********************************************************************
@@ -240,6 +353,7 @@ int LCD_X_DisplayDriver(unsigned LayerIndex, unsigned Cmd, void * pData) {
     // to be adapted by the customer...
     //
     // ...
+	st7735Init();
     return 0;
   }
   default:

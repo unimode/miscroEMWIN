@@ -78,7 +78,8 @@ Purpose     : Display controller initialization
 *   Called during the initialization process in order to set up the
 *   available memory for the GUI.
 */
-void GUI_X_Config(void) {
+void GUI_X_Config(void)
+{
   //
   // 32 bit aligned memory area
   //

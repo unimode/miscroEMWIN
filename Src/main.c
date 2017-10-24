@@ -38,6 +38,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f4xx_hal.h"
+#include "crc.h"
 #include "dma.h"
 #include "spi.h"
 #include "gpio.h"
@@ -92,6 +93,7 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_SPI3_Init();
+  MX_CRC_Init();
 
   /* USER CODE BEGIN 2 */
   GUI_Init();
